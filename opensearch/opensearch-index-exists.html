@@ -1,0 +1,50 @@
+<!-- ***************** index exists Register function *********************** -->
+<script type="text/x-red" data-template-name="opensearch-index-exists">
+    <div class="form-row">
+        <label for="node-input-server" style="width: 110px;"><i class="fa fa-bookmark"></i> Server</label>
+        <input type="text" id="node-input-server" placeholder="Server URL (ex. localhost:9200)">
+    </div>	
+    <div class="form-row">
+        <label for="node-input-name" style="width: 110px;"><i class="fa fa-bookmark"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-index" style="width: 110px;"><i class="fa fa-tag"></i> Index</label>
+        <input type="text" id="node-input-index" placeholder="Index to check">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="opensearch-index-exists">
+    <p>Check if the specified index exists in OpenSearch</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt class="optional">index <span class="property-type">string</span></dt>
+        <dd>If not configured in the node, this optional property sets the index to check.</dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">Boolean</span></dt>
+        <dd>True if the index exists, false otherwise.</dd>
+    </dl>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('opensearch-index-exists', {
+        category: 'function',
+        defaults: {
+            name: { value: "" },
+            server: { type: "opensearch-config", required: true },
+            index: { value: "" }
+        },
+        inputs: 1,
+        outputs: 1,
+        color: "#FFFFFF",
+        icon: "opensearch.png",
+        label: function () {
+            return this.name || "OpenSearch Index Exists";
+        },
+        labelStyle: function () {
+            return (this.name) ? "node_label_italic" : "";
+        }
+    });
+</script>

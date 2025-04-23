@@ -1,0 +1,79 @@
+<!-- ***************** SERVER CONFIG *********************** -->
+<script type="text/x-red" data-template-name="opensearch-config">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-server"><i class="fa fa-server"></i> Server URL</label>
+        <input type="text" id="node-config-input-server" placeholder="http://localhost:9200">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+        <input type="number" id="node-config-input-timeout" placeholder="30000">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-auth-type"><i class="fa fa-lock"></i> Authentication Type</label>
+        <select id="node-config-input-auth-type">
+            <option value="none">None</option>
+            <option value="basic">Basic Auth</option>
+            <option value="aws">AWS Sigv4</option>
+        </select>
+    </div>
+    <div class="form-row auth-basic" style="display: none;">
+        <label for="node-config-input-username"><i class="fa fa-user"></i> Username</label>
+        <input type="text" id="node-config-input-username" placeholder="Username">
+    </div>
+    <div class="form-row auth-basic" style="display: none;">
+        <label for="node-config-input-password"><i class="fa fa-key"></i> Password</label>
+        <input type="password" id="node-config-input-password" placeholder="Password">
+    </div>
+    <div class="form-row auth-aws" style="display: none;">
+        <label for="node-config-input-access-key"><i class="fa fa-key"></i> Access Key</label>
+        <input type="text" id="node-config-input-access-key" placeholder="Access Key">
+    </div>
+    <div class="form-row auth-aws" style="display: none;">
+        <label for="node-config-input-secret-key"><i class="fa fa-key"></i> Secret Key</label>
+        <input type="password" id="node-config-input-secret-key" placeholder="Secret Key">
+    </div>
+    <div class="form-row auth-aws" style="display: none;">
+        <label for="node-config-input-region"><i class="fa fa-globe"></i> Region</label>
+        <input type="text" id="node-config-input-region" placeholder="Region (e.g., us-west-2)">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-ssl"><i class="fa fa-shield"></i> Disable SSL Verification</label>
+        <input type="checkbox" id="node-config-input-ssl">
+    </div>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('opensearch-config', {
+        category: 'config',
+        defaults: {
+            name: { value: '' },
+            server: { value: '' },
+            timeout: { value: 30000 },
+            authType: { value: 'none' },
+            username: { value: '' },
+            password: { value: '' },
+            accessKey: { value: '' },
+            secretKey: { value: '' },
+            region: { value: '' },
+            disableSSL: { value: false }
+        },
+        oneditprepare: function () {
+            // Показать/скрыть поля аутентификации в зависимости от выбранного типа
+            const authTypeSelect = $('#node-config-input-auth-type');
+            const toggleAuthFields = () => {
+                const authType = authTypeSelect.val();
+                $('.auth-basic').toggle(authType === 'basic');
+                $('.auth-aws').toggle(authType === 'aws');
+            };
+            authTypeSelect.on('change', toggleAuthFields);
+            toggleAuthFields(); // Инициализация при загрузке
+        },
+        label: function () {
+            return this.name || this.server;
+        }
+    });
+</script>

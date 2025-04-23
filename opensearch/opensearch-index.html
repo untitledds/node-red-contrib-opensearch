@@ -1,0 +1,64 @@
+<!-- ***************** index Register function *********************** -->
+<script type="text/x-red" data-template-name="opensearch-index">
+    <div class="form-row">
+        <label for="node-input-server" style="width: 110px;"><i class="fa fa-bookmark"></i> Server</label>
+        <input type="text" id="node-input-server" placeholder="Server URL (ex. localhost:9200)">
+    </div>	
+    <div class="form-row">
+        <label for="node-input-name" style="width: 110px;"><i class="fa fa-bookmark"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-index" style="width: 110px;"><i class="fa fa-tag"></i> Index</label>
+        <input type="text" id="node-input-index" placeholder="Index to request">
+    </div>
+    <div class="form-row">
+        <label for="node-input-esId" style="width: 110px;"><i class="fa fa-tag"></i> Document ID</label>
+        <input type="text" id="node-input-esId" placeholder="Document ID">
+    </div>
+    <div class="form-row">
+        <label for="node-input-routing" style="width: 110px;"><i class="fa fa-tag"></i> Routing</label>
+        <input type="text" id="node-input-routing" placeholder="Routing">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="opensearch-index">
+    <p>Index the payload in OpenSearch</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt class="optional">index <span class="property-type">string</span></dt>
+        <dd>If not configured in the node, this optional property sets the index to index.</dd>
+        <dt class="optional">esId <span class="property-type">string</span></dt>
+        <dd>If not configured in the node, this optional property sets the ID of the document to index. If not set, check msg.payload._id.</dd>
+        <dt class="optional">routing <span class="property-type">string</span></dt>
+        <dd>This optional property sets the routing value for the document.</dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The body of the response from OpenSearch.</dd>
+    </dl>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('opensearch-index', {
+        category: 'function',
+        defaults: {
+            name: { value: "" },
+            server: { type: "opensearch-config", required: true },
+            index: { value: "" },
+            esId: { value: "" },
+            routing: { value: "" }
+        },
+        inputs: 1,
+        outputs: 1,
+        color: "#FFFFFF",
+        icon: "opensearch.png",
+        label: function () {
+            return this.name || "OpenSearch Index";
+        },
+        labelStyle: function () {
+            return (this.name) ? "node_label_italic" : "";
+        }
+    });
+</script>

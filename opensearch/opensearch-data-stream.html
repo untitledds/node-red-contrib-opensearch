@@ -1,0 +1,62 @@
+<script type="text/x-red" data-template-name="opensearch-data-stream">
+  <div class="form-row">
+    <label for="node-input-server" style="width: 110px;"><i class="fa fa-bookmark"></i> Server</label>
+    <input type="text" id="node-input-server" placeholder="Server URL (ex. localhost:9200)">
+  </div>
+  <div class="form-row">
+    <label for="node-input-name" style="width: 110px;"><i class="fa fa-bookmark"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-dataStream" style="width: 110px;"><i class="fa fa-tag"></i> Data Stream</label>
+    <input type="text" id="node-input-dataStream" placeholder="Data Stream name">
+  </div>
+  <div class="form-row">
+    <label for="node-input-action" style="width: 110px;"><i class="fa fa-tag"></i> Action</label>
+    <select id="node-input-action">
+      <option value="create">Create</option>
+      <option value="delete">Delete</option>
+      <option value="stats">Get Stats</option>
+    </select>
+  </div>
+</script>
+
+<script type="text/x-red" data-help-name="opensearch-data-stream">
+  <p>Manages OpenSearch Data Streams.</p>
+  <h3>Inputs</h3>
+  <dl class="message-properties">
+    <dt>dataStream <span class="property-type">string</span></dt>
+    <dd>The name of the Data Stream to manage.</dd>
+    <dt>action <span class="property-type">string</span></dt>
+    <dd>The action to perform: "create", "delete", or "stats".</dd>
+  </dl>
+  <h3>Outputs</h3>
+  <dl class="message-properties">
+    <dt>payload <span class="property-type">object</span></dt>
+    <dd>The response from OpenSearch.</dd>
+    <dt>error <span class="property-type">object</span></dt>
+    <dd>Error if one occurs.</dd>
+  </dl>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('opensearch-data-stream', {
+        category: 'function',
+        defaults: {
+            name: { value: "" },
+            server: {
+                type: "opensearch-config",
+                required: true,
+            },
+            dataStream: { value: "" },
+            action: { value: "create" },
+        },
+        inputs: 1,
+        outputs: 1,
+        color: "#FFFFFF",
+        icon: "opensearch.png",
+        label: function () {
+            return this.name || "OpenSearch Data Stream";
+        },
+    });
+</script>

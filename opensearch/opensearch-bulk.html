@@ -1,0 +1,74 @@
+<!-- ***************** elasticsearch-bulk Register function *********************** -->
+<script type="text/x-red" data-template-name="opensearch-bulk">
+    <div class="form-row">
+        <label for="node-input-server" style="width: 110px;"><i class="fa fa-bookmark"></i> Server</label>
+        <input type="text" id="node-input-server" placeholder="Server URL (ex. localhost:9200)">
+    </div>	
+    <div class="form-row">
+        <label for="node-input-name" style="width: 110px;"><i class="fa fa-bookmark"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-index" style="width: 110px;"><i class="fa fa-tag"></i> Default Index</label>
+        <input type="text" id="node-input-index" placeholder="Default Index to request">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="opensearch-bulk">
+    <p>Sends OpenSearch bulk requests and returns the response.</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt class="optional">index <span class="property-type">string</span></dt>
+        <dd>If not configured in the node, this optional property sets the default index to request.</dd>
+        <dt class="optional">payload <span class="property-type">object</span></dt>
+        <dd>
+            Contains the data to send in bulk.
+            <br/>
+            Format : 
+            <pre>
+            [
+                {
+                    meta: {
+                        action:  "index|update|delete",
+                        _index: "optional, if not provided will use default index",
+                        _id: "optional"
+                    },
+                    data: {
+                        property1: value,
+                        property2: value
+                    }
+                }
+            ]
+            </pre>
+        </dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The body of the response from OpenSearch.</dd>
+    </dl>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('opensearch-bulk', {
+        category: 'function',
+        defaults: {
+            name: { value: "" },
+            server: {
+                type: "opensearch-config",
+                required: true
+            },
+            index: { value: "" }
+        },
+        inputs: 1,
+        outputs: 1,
+        color: "#FFFFFF",
+        icon: "opensearch.png",
+        label: function () {
+            return this.name || "OpenSearch Bulk";
+        },
+        labelStyle: function () {
+            return (this.name) ? "node_label_italic" : "";
+        }
+    });
+</script>
