@@ -5,6 +5,7 @@ module.exports = function (RED) {
     RED.nodes.createNode(this, config);
     const node = this;
     const serverConfig = RED.nodes.getNode(config.server);
+    
 
     if (!serverConfig || !serverConfig.client) {
       node.status({ fill: 'red', shape: 'dot', text: 'No OpenSearch client' });
@@ -44,38 +45,72 @@ module.exports = function (RED) {
             })
             .catch((err) => handleError(err));
         }
-
+        
         function processScrollSearch() {
           let scrollId = null;
+          let isAborted = false;
 
-          const processScrollResponse = (resp) => {
-            processResponse(resp);
-            scrollId = resp._scroll_id;
+          const processScrollResponse = async (resp) => {
+            try {
+              // 1. Сохраняем scroll_id для следующего запроса
+              scrollId = resp.body._scroll_id;
 
-            if (resp.hits.hits.length === 0) {
-              if (done) done();
-              return Promise.resolve();
-            }
+              // 2. Обрабатываем текущую партию результатов
+              processResponse(resp);
 
-            return serverConfig.client
-              .scroll({
+              // 3. Проверяем завершение скролла
+              if (resp.body.hits.hits.length === 0 || isAborted) {
+                await cleanupScroll();
+                if (done) done();
+                return;
+              }
+
+              // 4. Получаем следующую партию
+              const nextResponse = await serverConfig.client.scroll({
                 scroll_id: scrollId,
                 scroll: '1m',
-              })
-              .then(processScrollResponse);
+              });
+
+              // 5. Рекурсивно продолжаем
+              await processScrollResponse(nextResponse);
+            } catch (err) {
+              await cleanupScroll();
+              handleError(err);
+            }
           };
 
+          const cleanupScroll = async () => {
+            if (scrollId && !isAborted) {
+              try {
+                await serverConfig.client.clearScroll({
+                  scroll_id: scrollId,
+                });
+              } catch (err) {
+                node.error('Scroll cleanup error: ' + err.message);
+              }
+            }
+          };
+
+          const handleAbort = () => {
+            isAborted = true;
+          };
+
+          // Инициируем процесс
           serverConfig.client
             .search(searchConfig)
             .then(processScrollResponse)
-            .catch((err) => handleError(err));
+            .catch(handleError);
+
+          // Возвращаем функцию для прерывания
+          return handleAbort;
         }
 
         function processResponse(resp) {
           // Основная логика заполнения payload
-          if (resp.hits?.hits) {
-            const hitsData = resp.hits.hits.map((hit) => ({
-              data: hit._source,
+
+          if (resp.body?.hits?.hits) {
+            const hitsData = resp.body.hits.hits.map((hit) => ({
+              ...hit._source,
               meta: {
                 id: hit._id,
                 index: hit._index,
@@ -103,7 +138,7 @@ module.exports = function (RED) {
           }
 
           // Отправка при обычном поиске или последней партии scroll
-          if (!config.scroll || resp.hits.hits.length === 0) {
+          if (!config.scroll || resp.body.hits.hits.length === 0) {
             send([msg, null]);
           }
         }
