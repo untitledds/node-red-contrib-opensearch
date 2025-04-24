@@ -1,5 +1,5 @@
 module.exports = function (RED) {
-  'use strict';
+  "use strict";
 
   function opensearchSearchNode(config) {
     try {
@@ -10,9 +10,9 @@ module.exports = function (RED) {
       const serverConfig = RED.nodes.getNode(config.server);
       if (!serverConfig || !serverConfig.client) {
         node.status({
-          fill: 'red',
-          shape: 'dot',
-          text: 'No OpenSearch client found',
+          fill: "red",
+          shape: "dot",
+          text: "No OpenSearch client found",
         });
         return;
       }
@@ -20,7 +20,7 @@ module.exports = function (RED) {
       node.status({});
 
       // Обработка входящих сообщений
-      node.on('input', function (msg) {
+      node.on("input", function (msg) {
         const searchConfig = {
           index: config.index, // Индекс из конфигурации узла
           body: config.query, // Запрос из конфигурации узла
@@ -39,12 +39,12 @@ module.exports = function (RED) {
         }
 
         // Переопределение размера страницы
+        searchConfig.size = 10; // По умолчанию
+        if (config.size) {
+          searchConfig.size = config.size;
+        }
         if (msg.size) {
           searchConfig.size = msg.size;
-        } else if (config.size) {
-          searchConfig.size = config.size;
-        } else {
-          searchConfig.size = 10; // По умолчанию 10
         }
 
         // Переопределение смещения
@@ -54,7 +54,7 @@ module.exports = function (RED) {
 
         // Поддержка scroll
         if (config.scroll || msg.scroll) {
-          searchConfig.scroll = '1m'; // Время жизни scroll-курсора
+          searchConfig.scroll = "1m"; // Время жизни scroll-курсора
         }
 
         // Инициализация payload и es_responses
@@ -64,9 +64,8 @@ module.exports = function (RED) {
         }
 
         // Выполнение запроса к OpenSearch
-        serverConfig.client
-          .search(searchConfig)
-          .then((resp) => {
+        serverConfig.client.search(searchConfig).then(
+          function (resp) {
             (function next(resp) {
               // Добавление полного ответа, если требуется
               if (config.fullResponse) {
@@ -75,70 +74,86 @@ module.exports = function (RED) {
 
               // Проверка наличия результатов
               if (!resp.hits || !resp.hits.hits || !resp.hits.hits.length) {
-                node.send(msg);
+                if (msg.payload.length > 0) {
+                  node.send(msg); // Отправляем оставшиеся данные
+                }
                 return;
               }
 
               // Обработка найденных документов
-              for (const hit of resp.hits.hits) {
-                const obj = {
-                  _source: hit._source,
-                  _id: hit._id,
-                };
-                msg.payload.push(obj);
+              if (config.bulkSize) {
+                // Пакетная обработка
+                for (const hit of resp.hits.hits) {
+                  msg.payload.push({
+                    _source: hit._source,
+                    _id: hit._id,
+                  });
 
-                // Отправка данных пакетами, если указан bulkSize
-                if (
-                  config.bulkSize &&
-                  msg.payload.length % config.bulkSize === 0
-                ) {
-                  node.send(msg);
-                  msg.payload = [];
+                  // Отправка данных пакетами
+                  if (msg.payload.length % config.bulkSize === 0) {
+                    node.send({ ...msg }); // Клонируем msg
+                    msg.payload = [];
+                  }
                 }
+              } else {
+                // Полная загрузка
+                msg.payload = resp.hits.hits.map((hit) => ({
+                  ...hit._source,
+                  _meta: {
+                    id: hit._id,
+                    index: hit._index,
+                    score: hit._score,
+                  },
+                }));
               }
 
-              // Если scroll не используется, завершаем обработку
-              if (!searchConfig.scroll) {
-                node.send(msg);
+              // Если scroll не используется, отправляем оставшиеся данные
+              if (!searchConfig.scroll || !resp.hits.hits.length) {
+                if (msg.payload.length > 0) {
+                  node.send(msg); // Отправляем оставшиеся данные
+                }
                 return;
               }
 
               // Продолжение scroll-запроса
-              const scrollId = resp._scroll_id;
-              serverConfig.client
-                .scroll({
-                  scroll: '1m',
-                  scroll_id: scrollId,
-                })
-                .then(next)
-                .catch((err) => node.error('Scroll error: ' + err));
+              if (searchConfig.scroll) {
+                const scrollId = resp._scroll_id;
+                serverConfig.client
+                  .scroll({
+                    scroll: "1m",
+                    scroll_id: scrollId,
+                  })
+                  .then(next)
+                  .catch((err) => node.error("Scroll error: " + err));
+              }
             })(resp);
-          })
-          .catch((err) => {
-            node.error('OpenSearch Search Node Error - ' + err.message);
+          },
+          function (err) {
+            node.error("OpenSearch Search Node Error - " + err.message);
             msg.payload = [];
             msg.error = err;
             node.send(msg);
-          });
+          }
+        );
       });
 
       // Обработка ошибок узла
-      node.on('error', function (error) {
-        node.error('OpenSearch Search Node Error - ' + error);
+      node.on("error", function (error) {
+        node.error("OpenSearch Search Node Error - " + error);
       });
 
       // Очистка ресурсов при закрытии узла
-      node.on('close', function (done) {
+      node.on("close", function (done) {
         if (node.client) {
           delete node.client;
         }
         done();
       });
     } catch (err) {
-      node.error('OpenSearch Search Node Error - ' + err);
+      node.error("OpenSearch Search Node Error - " + err);
     }
   }
 
   // Регистрация типа узла
-  RED.nodes.registerType('opensearch-search', opensearchSearchNode);
+  RED.nodes.registerType("opensearch-search", opensearchSearchNode);
 };
