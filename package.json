@@ -1,6 +1,6 @@
 {
   "name": "red-contrib-opensearch",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A Node-RED contribution package for OpenSearch, providing a wrapper for the OpenSearch client.",
   "main": "opensearch-index.js",
   "node-red": {
