@@ -41,6 +41,7 @@ module.exports = function (RED) {
           try {
             const resp = await serverConfig.client.search(searchConfig);
             await processResponse(resp);
+            sendResults();
           } catch (err) {
             await handleError(err);
           } finally {
@@ -64,38 +65,40 @@ module.exports = function (RED) {
 
           const handleAbort = () => {
             isAborted = true;
+            cleanupScroll();
           };
 
           try {
+            // Первоначальный запрос
             const initialResponse = await serverConfig.client.search(
               searchConfig
             );
-            await processScrollResponse(initialResponse);
+            scrollId = initialResponse.body._scroll_id;
+            await processResponse(initialResponse);
+
+            // Обработка последующих scroll-запросов
+            while (!isAborted) {
+              const scrollResponse = await serverConfig.client.scroll({
+                scroll_id: scrollId,
+                scroll: '1m',
+              });
+
+              scrollId = scrollResponse.body._scroll_id;
+              const hits = scrollResponse.body.hits.hits;
+
+              if (hits.length === 0) {
+                break; // Больше нет данных
+              }
+
+              await processResponse(scrollResponse);
+            }
+
+            sendResults();
           } catch (err) {
             await handleError(err);
           } finally {
             await cleanupScroll();
             if (done) done();
-          }
-
-          async function processScrollResponse(resp) {
-            scrollId = resp.body._scroll_id;
-            await processResponse(resp);
-
-            if (resp.body.hits.hits.length === 0 || isAborted) {
-              return;
-            }
-
-            try {
-              const nextResponse = await serverConfig.client.scroll({
-                scroll_id: scrollId,
-                scroll: '1m',
-              });
-              await processScrollResponse(nextResponse);
-            } catch (err) {
-              await handleError(err);
-              throw err;
-            }
           }
 
           return handleAbort;
@@ -112,25 +115,18 @@ module.exports = function (RED) {
               },
             }));
 
-            if (config.bulkSize) {
-              msg.payload.push(...hitsData);
-              if (msg.payload.length >= config.bulkSize) {
-                send([msg, null]);
-                msg.payload = [];
-              }
-            } else {
-              msg.payload = hitsData;
-            }
+            msg.payload.push(...hitsData);
           }
 
           if (config.fullResponse) {
             msg.es_responses = msg.es_responses || [];
             msg.es_responses.push(resp);
           }
+        }
 
-          if (!config.scroll || resp.body.hits.hits.length === 0) {
-            send([msg, null]);
-          }
+        function sendResults() {
+          // Отправляем все результаты одним сообщением
+          send([msg, null]);
         }
 
         async function handleError(err) {
