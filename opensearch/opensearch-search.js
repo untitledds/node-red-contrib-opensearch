@@ -5,14 +5,15 @@ module.exports = function (RED) {
     RED.nodes.createNode(this, config);
     const node = this;
     const serverConfig = RED.nodes.getNode(config.server);
-    
 
     if (!serverConfig || !serverConfig.client) {
       node.status({ fill: 'red', shape: 'dot', text: 'No OpenSearch client' });
       return;
     }
 
-    node.on('input', function (msg, send, done) {
+    let abortScroll = () => {};
+
+    node.on('input', async function (msg, send, done) {
       try {
         // Подготовка конфигурации поиска
         const searchConfig = {
@@ -31,60 +32,30 @@ module.exports = function (RED) {
         // Обработка scroll-запросов
         if (config.scroll || msg.scroll) {
           searchConfig.scroll = '1m';
-          processScrollSearch();
+          abortScroll = await processScrollSearch();
         } else {
-          processNormalSearch();
+          await processNormalSearch();
         }
 
-        function processNormalSearch() {
-          serverConfig.client
-            .search(searchConfig)
-            .then((resp) => {
-              processResponse(resp);
-              if (done) done();
-            })
-            .catch((err) => handleError(err));
+        async function processNormalSearch() {
+          try {
+            const resp = await serverConfig.client.search(searchConfig);
+            await processResponse(resp);
+          } catch (err) {
+            await handleError(err);
+          } finally {
+            if (done) done();
+          }
         }
-        
-        function processScrollSearch() {
+
+        async function processScrollSearch() {
           let scrollId = null;
           let isAborted = false;
-
-          const processScrollResponse = async (resp) => {
-            try {
-              // 1. Сохраняем scroll_id для следующего запроса
-              scrollId = resp.body._scroll_id;
-
-              // 2. Обрабатываем текущую партию результатов
-              processResponse(resp);
-
-              // 3. Проверяем завершение скролла
-              if (resp.body.hits.hits.length === 0 || isAborted) {
-                await cleanupScroll();
-                if (done) done();
-                return;
-              }
-
-              // 4. Получаем следующую партию
-              const nextResponse = await serverConfig.client.scroll({
-                scroll_id: scrollId,
-                scroll: '1m',
-              });
-
-              // 5. Рекурсивно продолжаем
-              await processScrollResponse(nextResponse);
-            } catch (err) {
-              await cleanupScroll();
-              handleError(err);
-            }
-          };
 
           const cleanupScroll = async () => {
             if (scrollId && !isAborted) {
               try {
-                await serverConfig.client.clearScroll({
-                  scroll_id: scrollId,
-                });
+                await serverConfig.client.clearScroll({ scroll_id: scrollId });
               } catch (err) {
                 node.error('Scroll cleanup error: ' + err.message);
               }
@@ -95,19 +66,42 @@ module.exports = function (RED) {
             isAborted = true;
           };
 
-          // Инициируем процесс
-          serverConfig.client
-            .search(searchConfig)
-            .then(processScrollResponse)
-            .catch(handleError);
+          try {
+            const initialResponse = await serverConfig.client.search(
+              searchConfig
+            );
+            await processScrollResponse(initialResponse);
+          } catch (err) {
+            await handleError(err);
+          } finally {
+            await cleanupScroll();
+            if (done) done();
+          }
 
-          // Возвращаем функцию для прерывания
+          async function processScrollResponse(resp) {
+            scrollId = resp.body._scroll_id;
+            await processResponse(resp);
+
+            if (resp.body.hits.hits.length === 0 || isAborted) {
+              return;
+            }
+
+            try {
+              const nextResponse = await serverConfig.client.scroll({
+                scroll_id: scrollId,
+                scroll: '1m',
+              });
+              await processScrollResponse(nextResponse);
+            } catch (err) {
+              await handleError(err);
+              throw err;
+            }
+          }
+
           return handleAbort;
         }
 
-        function processResponse(resp) {
-          // Основная логика заполнения payload
-
+        async function processResponse(resp) {
           if (resp.body?.hits?.hits) {
             const hitsData = resp.body.hits.hits.map((hit) => ({
               ...hit._source,
@@ -119,36 +113,31 @@ module.exports = function (RED) {
             }));
 
             if (config.bulkSize) {
-              // Пакетная отправка
               msg.payload.push(...hitsData);
               if (msg.payload.length >= config.bulkSize) {
                 send([msg, null]);
                 msg.payload = [];
               }
             } else {
-              // Полная отправка
               msg.payload = hitsData;
             }
           }
 
-          // Сохранение полного ответа если нужно
           if (config.fullResponse) {
-            if (!msg.es_responses) msg.es_responses = [];
+            msg.es_responses = msg.es_responses || [];
             msg.es_responses.push(resp);
           }
 
-          // Отправка при обычном поиске или последней партии scroll
           if (!config.scroll || resp.body.hits.hits.length === 0) {
             send([msg, null]);
           }
         }
 
-        function handleError(err) {
+        async function handleError(err) {
           node.error('Search error: ' + err.message, msg);
           msg.error = err;
           msg.payload = [];
           send([null, msg]);
-          if (done) done();
         }
       } catch (err) {
         if (done) done(err);
@@ -157,6 +146,7 @@ module.exports = function (RED) {
     });
 
     node.on('close', function (done) {
+      abortScroll();
       done();
     });
   }

@@ -1,6 +1,6 @@
 {
   "name": "red-contrib-opensearch",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "description": "A Node-RED contribution package for OpenSearch, providing a wrapper for the OpenSearch client.",
   "main": "opensearch-index.js",
   "node-red": {
@@ -16,7 +16,8 @@
       "opensearch-refresh-index": "opensearch/opensearch-refresh-index.js",
       "opensearch-delete": "opensearch/opensearch-delete.js",
       "opensearch-deleteByQuery": "opensearch/opensearch-deleteByQuery.js",
-      "opensearch-data-stream": "opensearch/opensearch-data-stream.js"
+      "opensearch-data-stream": "opensearch/opensearch-data-stream.js",
+      "opensearch-tester": "opensearch/opensearch-tester.js"
     }
   },
   "repository": {

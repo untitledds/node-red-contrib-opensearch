@@ -49,19 +49,19 @@ module.exports = function (RED) {
             msg.payload = {};
 
             // Извлечение данных из ответа
-            if (resp && resp._source) {
-              msg.payload = resp._source; // Данные документа
+            if (resp && resp.body._source) {
+              msg.payload = resp.body._source; // Данные документа
             }
 
             // Добавление метаданных
-            if (resp._id) {
-              msg.payload._id = resp._id; // ID документа
+            if (resp.body._id) {
+              msg.payload._id = resp.body._id; // ID документа
             }
-            if (resp._index) {
-              msg.payload._index = resp._index; // Индекс
+            if (resp.body._index) {
+              msg.payload._index = resp.body._index; // Индекс
             }
-            if (resp._version) {
-              msg.payload._version = resp._version; // Версия документа
+            if (resp.body._version) {
+              msg.payload._version = resp.body._version; // Версия документа
             }
 
             node.send(msg);

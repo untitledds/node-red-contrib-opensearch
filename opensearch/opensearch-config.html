@@ -13,8 +13,8 @@
         <input type="number" id="node-config-input-timeout" placeholder="30000">
     </div>
     <div class="form-row">
-        <label for="node-config-input-auth-type"><i class="fa fa-lock"></i> Authentication Type</label>
-        <select id="node-config-input-auth-type">
+        <label for="node-config-input-auth"><i class="fa fa-lock"></i> Authentication Type</label>
+        <select id="node-config-input-auth">
             <option value="none">None</option>
             <option value="basic">Basic Auth</option>
             <option value="aws">AWS Sigv4</option>
@@ -41,19 +41,27 @@
         <input type="text" id="node-config-input-region" placeholder="Region (e.g., us-west-2)">
     </div>
     <div class="form-row">
-        <label for="node-config-input-ssl"><i class="fa fa-shield"></i> Disable SSL Verification</label>
-        <input type="checkbox" id="node-config-input-ssl">
+        <label for="node-config-input-disableSSL"><i class="fa fa-shield"></i> Disable SSL Verification</label>
+        <input type="checkbox" id="node-config-input-disableSSL">
+    </div>
+    <div class="form-row">
+        <button type="button" id="node-config-input-test-connection" class="red-ui-button">
+            <i class="fa fa-plug"></i> Test connection
+        </button>
+        <div id="node-config-test-result" style="margin-top: 10px; display: none;"></div>
     </div>
 </script>
 
 <script type="text/javascript">
     RED.nodes.registerType('opensearch-config', {
         category: 'config',
+        color: "#FFFFFF",
+        icon: "opensearch.png",
         defaults: {
             name: { value: '' },
             server: { value: '' },
             timeout: { value: 30000 },
-            authType: { value: 'none' },
+            auth: { value: 'none' },
             username: { value: '' },
             password: { value: '' },
             accessKey: { value: '' },
@@ -62,18 +70,91 @@
             disableSSL: { value: false }
         },
         oneditprepare: function () {
+            const node = this;
             // Показать/скрыть поля аутентификации в зависимости от выбранного типа
-            const authTypeSelect = $('#node-config-input-auth-type');
+            const authSelect = $('#node-config-input-auth');
             const toggleAuthFields = () => {
-                const authType = authTypeSelect.val();
-                $('.auth-basic').toggle(authType === 'basic');
-                $('.auth-aws').toggle(authType === 'aws');
+                const auth = authSelect.val();
+                $('.auth-basic').toggle(auth === 'basic');
+                $('.auth-aws').toggle(auth === 'aws');
             };
-            authTypeSelect.on('change', toggleAuthFields);
+            authSelect.on('change', toggleAuthFields);
             toggleAuthFields(); // Инициализация при загрузке
+
+            $('#node-config-input-test-connection').on('click', function () {
+                const btn = $(this);
+                const testResult = $('#node-config-test-result');
+                btn.prop('disabled', true);
+                testResult.html('<i class="fa fa-spinner fa-spin"></i> Testing connection...').show();
+
+                const testData = {
+                    server: $('#node-config-input-server').val().trim(),
+                    timeout: $('#node-config-input-timeout').val(),
+                    auth: $('#node-config-input-auth').val(),
+                    username: $('#node-config-input-username').val(),
+                    password: $('#node-config-input-password').val(),
+                    accessKey: $('#node-config-input-access-key').val(),
+                    secretKey: $('#node-config-input-secret-key').val(),
+                    region: $('#node-config-input-region').val(),
+                    disableSSL: $('#node-config-input-disableSSL').is(':checked')
+                };
+
+                // Валидация
+                if (!testData.server) {
+                    testResult.html('<span class="error">Server URL is required</span>');
+                    btn.prop('disabled', false);
+                    return;
+                }
+
+                $.ajax({
+                    url: 'opensearch/test-connection',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(testData),
+                    success: function (response) {
+                        testResult.html(`<span class="success"><i class="fa fa-check"></i> ${response.message}</span>`);
+                    },
+                    error: function (xhr) {
+                        const error = xhr.responseJSON?.error || 'Connection failed';
+                        testResult.html(`<span class="error"><i class="fa fa-times"></i> ${error}</span>`);
+                    },
+                    complete: function () {
+                        btn.prop('disabled', false);
+                    }
+                });
+            });
         },
         label: function () {
-            return this.name || this.server;
-        }
+            return (this.name ? this.name : this.server);
+        },
     });
 </script>
+
+<style>
+    #node-config-test-result span {
+        font-size: 14px;
+        padding: 8px;
+        border-radius: 4px;
+    }
+
+    #node-config-test-result span.error {
+        color: #d9534f;
+        /* Красный */
+        background-color: #f2dede;
+    }
+
+    #node-config-test-result span.success {
+        color: #5cb85c;
+        /* Зеленый */
+        background-color: #dff0d8;
+    }
+
+    #node-config-input-test-connection {
+        width: 100%;
+    }
+
+    #node-config-input-test-connection:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+</style>
